@@ -37,6 +37,11 @@ public final class VeinMinerConfig {
      *  (early-game / durability-friendly). Hard blocks always need the correct tool to drop. */
     public static boolean requireTool = false;
 
+    /** When true, holding Sneak while breaking a block activates vein-mining (the classic trigger).
+     *  When false, only the rebindable activation keybind does — so you can crouch without
+     *  vein-mining. Independent of the per-player on/off toggle in {@link PlayerState}. */
+    public static boolean sneakActivates = true;
+
     /** Whether the Spread mode is offered in the [ / ] cycle. */
     public static boolean enableSpread = false;
 

@@ -6,9 +6,12 @@ import org.slf4j.LoggerFactory;
 import com.kestalkayden.veinminerplusplus.client.VeinMinerPlusNeoForgeClient;
 import com.kestalkayden.veinminerplusplus.config.VeinMinerPlusConfig;
 import com.kestalkayden.veinminerplusplus.core.MineShape;
+import com.kestalkayden.veinminerplusplus.core.PlayerState;
 import com.kestalkayden.veinminerplusplus.core.ShapeState;
 import com.kestalkayden.veinminerplusplus.core.VeinMiner;
+import com.kestalkayden.veinminerplusplus.network.ActivationHeldPayload;
 import com.kestalkayden.veinminerplusplus.network.ShapeSelectPayload;
+import com.kestalkayden.veinminerplusplus.network.ToggleEnabledPayload;
 
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -69,6 +72,26 @@ public class VeinMinerPlusNeoForge {
                     MineShape[] shapes = MineShape.values();
                     int ordinal = Math.max(0, Math.min(payload.shapeOrdinal(), shapes.length - 1));
                     ShapeState.set(player.getUUID(), shapes[ordinal]);
+                }));
+
+        // C2S: per-player master on/off toggle.
+        registrar.playToServer(
+                ToggleEnabledPayload.TYPE,
+                ToggleEnabledPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        PlayerState.setEnabled(player.getUUID(), payload.enabled());
+                    }
+                }));
+
+        // C2S: rebindable activation key held-state.
+        registrar.playToServer(
+                ActivationHeldPayload.TYPE,
+                ActivationHeldPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        PlayerState.setActivationHeld(player.getUUID(), payload.held());
+                    }
                 }));
     }
 

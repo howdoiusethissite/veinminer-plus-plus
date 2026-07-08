@@ -4,9 +4,14 @@ import org.lwjgl.glfw.GLFW;
 
 import com.kestalkayden.veinminerplusplus.client.ShapeGuideRenderer;
 import com.kestalkayden.veinminerplusplus.core.ClientShapeState;
+import com.kestalkayden.veinminerplusplus.core.ClientState;
 import com.kestalkayden.veinminerplusplus.core.ShapeState;
 import com.kestalkayden.veinminerplusplus.core.VeinMinerConfig;
+import com.kestalkayden.veinminerplusplus.network.ActivationHeldPayload;
 import com.kestalkayden.veinminerplusplus.network.ShapeSelectPayload;
+import com.kestalkayden.veinminerplusplus.network.ToggleEnabledPayload;
+
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -58,6 +63,20 @@ public class VeinMinerPlusFabricClient implements ClientModInitializer {
                     GLFW.GLFW_KEY_RIGHT_BRACKET,
                     CATEGORY));
 
+    /** Rebindable vein-mine activation (hold while breaking). Default: unbound. */
+    public static final KeyMapping KEY_ACTIVATE = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                    "key.veinminerplusplus.activate",
+                    GLFW.GLFW_KEY_UNKNOWN,
+                    CATEGORY));
+
+    /** Toggle vein-mining on/off for this client. Default: unbound. */
+    public static final KeyMapping KEY_TOGGLE = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                    "key.veinminerplusplus.toggle",
+                    GLFW.GLFW_KEY_UNKNOWN,
+                    CATEGORY));
+
     // -------------------------------------------------------------------------
     // ClientModInitializer
     // -------------------------------------------------------------------------
@@ -84,6 +103,15 @@ public class VeinMinerPlusFabricClient implements ClientModInitializer {
     // -------------------------------------------------------------------------
 
     private void onClientTick(Minecraft client) {
+        // (Re)sync per-connection client state the moment we connect, so a long-running dedicated
+        // server never keeps a stale toggle from a previous session.
+        boolean connected = client.player != null && client.getConnection() != null;
+        if (connected && !ClientState.wasConnected) {
+            send(new ToggleEnabledPayload(ClientState.enabled));
+            ClientState.activationHeldSent = false;   // force an activation re-sync below
+        }
+        ClientState.wasConnected = connected;
+
         // consumeClick() returns true once per queued press, so holding the key for
         // multiple ticks will cycle the shape only as many times as presses were queued.
         boolean changed = false;
@@ -98,7 +126,9 @@ public class VeinMinerPlusFabricClient implements ClientModInitializer {
             changed = true;
         }
 
-        if (changed && client.player != null) {
+        if (client.player == null) return;
+
+        if (changed) {
             // Stamp the cycle time so the guide knows to show briefly.
             if (client.level != null) {
                 ClientShapeState.lastCycleGameTime = client.level.getGameTime();
@@ -109,7 +139,31 @@ public class VeinMinerPlusFabricClient implements ClientModInitializer {
                     Component.translatable("veinminerplusplus.shape", ClientShapeState.current.label));
 
             // Tell the server what we picked.
-            ClientPlayNetworking.send(new ShapeSelectPayload(ClientShapeState.current.ordinal()));
+            send(new ShapeSelectPayload(ClientShapeState.current.ordinal()));
         }
+
+        // On/off toggle — one flip per press, with a client-only chat line.
+        while (KEY_TOGGLE.consumeClick()) {
+            ClientState.enabled = !ClientState.enabled;
+            // Client-only chat line (LocalPlayer#sendSystemMessage routes to the chat HUD, never
+            // the server) so only this player sees the on/off feedback.
+            client.player.sendSystemMessage(
+                    Component.translatable(ClientState.enabled
+                            ? "veinminerplusplus.toggle.enabled"
+                            : "veinminerplusplus.toggle.disabled"));
+            send(new ToggleEnabledPayload(ClientState.enabled));
+        }
+
+        // Rebindable activation key — report held-state changes (edge-triggered).
+        boolean held = KEY_ACTIVATE.isDown();
+        if (held != ClientState.activationHeldSent) {
+            ClientState.activationHeldSent = held;
+            send(new ActivationHeldPayload(held));
+        }
+    }
+
+    /** Send a C2S payload over the active play connection. */
+    private static void send(CustomPacketPayload payload) {
+        ClientPlayNetworking.send(payload);
     }
 }

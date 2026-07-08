@@ -4,6 +4,11 @@
   "key.category.veinminerplusplus.main": "Veinminer++",
   "key.veinminerplusplus.shape_prev": "Previous Shape",
   "key.veinminerplusplus.shape_next": "Next Shape",
+  "key.veinminerplusplus.activate": "Vein-mine (hold)",
+  "key.veinminerplusplus.toggle": "Toggle vein-mining",
+
+  "veinminerplusplus.toggle.enabled": "Veinminer++: vein-mining enabled",
+  "veinminerplusplus.toggle.disabled": "Veinminer++: vein-mining disabled",
 
   "veinminerplusplus.config.title": "Veinminer++ Settings",
 
@@ -37,6 +42,9 @@
 
   "veinminerplusplus.config.clearLeaves": "Clear felled-tree leaves",
   "veinminerplusplus.config.clearLeaves.tooltip": "When on, felling an isolated tree also clears its leaf canopy, dropping the same loot (saplings, sticks, apples) leaves give when they decay. Trees whose leaves are shared with a neighbour are left to decay normally.",
+
+  "veinminerplusplus.config.sneakActivates": "Sneak activates",
+  "veinminerplusplus.config.sneakActivates.tooltip": "When on, holding Sneak while breaking a block starts vein-mining (the classic trigger). Turn off to require the separate \"Vein-mine (hold)\" keybind instead, so you can crouch without vein-mining. The keybind works either way; set it in Controls.",
 
   "veinminerplusplus.config.requireTool": "Require a tool",
   "veinminerplusplus.config.requireTool.tooltip": "When on, soft blocks (grass, dirt, sand) still need a tool in hand to vein-mine. When off, they can be vein-mined by hand or any item — handy early game or to save durability. Hard blocks always need the correct tool.",

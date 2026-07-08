@@ -1,6 +1,7 @@
 package com.kestalkayden.veinminerplusplus.client;
 
 import com.kestalkayden.veinminerplusplus.core.ClientShapeState;
+import com.kestalkayden.veinminerplusplus.core.ClientState;
 import com.kestalkayden.veinminerplusplus.core.MineShape;
 import com.kestalkayden.veinminerplusplus.core.VeinMinerConfig;
 
@@ -41,7 +42,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  *
  * <h3>Visibility rules (checked every frame in {@link #render})</h3>
  * <ol>
- *   <li>The local player must be in-world and holding Sneak (the vein-miner activation key).
+ *   <li>The local player must be in-world, vein-mining must be enabled for this client, and an
+ *       activation must be engaged — Sneak (when "Sneak activates" is on) or the rebindable
+ *       activation key.
  *   <li>The selected shape must be a cuboid (not {@link MineShape#isVein()}).
  *   <li>The crosshair must be aimed at a block ({@code hitResult instanceof BlockHitResult} with
  *       type {@code BLOCK}).
@@ -129,8 +132,14 @@ public final class ShapeGuideRenderer {
         // ---- 1. Require a live in-world client player -----------------------------------
         if (mc.player == null || mc.level == null) return;
 
-        // ---- 2. Activation key: Sneak must be held ------------------------------------
-        if (!mc.options.keyShift.isDown()) return;
+        // ---- 2. Master toggle + activation: show only while an activation is engaged --
+        // Hidden when the player has toggled vein-mining off, otherwise shown while Sneak (when the
+        // config lets Sneak activate) or the rebindable activation key is held — so the guide
+        // tracks whatever actually triggers a vein-mine.
+        if (!ClientState.enabled) return;
+        boolean activating = (VeinMinerConfig.sneakActivates && mc.options.keyShift.isDown())
+                || ClientState.activationHeldSent;
+        if (!activating) return;
 
         // ---- 3. Selected shape must be a box (only the cuboid has an edge to preview) -
         MineShape shape = ClientShapeState.current;

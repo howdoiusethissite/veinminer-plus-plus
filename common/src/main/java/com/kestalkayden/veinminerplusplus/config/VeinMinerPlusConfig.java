@@ -76,6 +76,10 @@ public class VeinMinerPlusConfig {
      *  vein-mined by hand or any item. Hard blocks always need the correct tool to drop. */
     public boolean requireTool = false;
 
+    /** When on, holding Sneak while breaking a block activates vein-mining (the classic trigger).
+     *  When off, only the rebindable "Vein-mine (hold)" keybind does. */
+    public boolean sneakActivates = true;
+
     /** When on, the larger Spread mode is offered in the [ / ] cycle. */
     public boolean enableSpread = false;
 
@@ -202,6 +206,7 @@ public class VeinMinerPlusConfig {
         VeinMinerConfig.clearLeaves          = clearLeaves;
         VeinMinerConfig.blocksPerTick        = blocksPerTick;
         VeinMinerConfig.requireTool          = requireTool;
+        VeinMinerConfig.sneakActivates       = sneakActivates;
         VeinMinerConfig.enableSpread         = enableSpread;
         VeinMinerConfig.enableExtraShapes    = enableExtraShapes;
         VeinMinerConfig.durabilityMultiplier = durabilityPercent / 100.0;

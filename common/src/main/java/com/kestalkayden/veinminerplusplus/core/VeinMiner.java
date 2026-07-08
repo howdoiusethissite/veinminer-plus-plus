@@ -62,8 +62,13 @@ public final class VeinMiner {
     public static void onBlockBroken(ServerPlayer player, ServerLevel level, BlockPos origin, BlockState originState) {
         if (breaking) return;                            // re-entrancy from our own breaks
         if (originState.isAir()) return;
-        if (!player.isShiftKeyDown()) return;            // activation: hold sneak
-        if (JOBS.containsKey(player.getUUID())) return;  // a vein is already draining for this player
+
+        UUID uuid = player.getUUID();
+        if (!PlayerState.isEnabled(uuid)) return;        // per-player master on/off toggle
+        // Activation: Sneak (when the config lets it) and/or the rebindable activation keybind.
+        boolean sneakActivate = VeinMinerConfig.sneakActivates && player.isShiftKeyDown();
+        if (!sneakActivate && !PlayerState.isActivationHeld(uuid)) return;
+        if (JOBS.containsKey(uuid)) return;              // a vein is already draining for this player
 
         ItemStack tool = player.getMainHandItem();
         if (!canMine(originState, tool)) return;         // the player couldn't collect this anyway
