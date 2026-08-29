@@ -22,6 +22,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /** Loader-agnostic vein-mining core, shared by both loaders.
  *
@@ -40,11 +41,21 @@ public final class VeinMiner {
 
     private static final Map<UUID, Deque<Target>> JOBS = new HashMap<>();
 
+    /** Origin block of each active job, used when {@link #DROPS_AT_ORIGIN} is on:
+     *  every drop a queued break spawns is moved into this block's space, so the whole vein lands
+     *  in one pile where the player swung instead of scattered down the seam. */
+    private static final Map<UUID, BlockPos> ORIGINS = new HashMap<>();
+
     /** Per-player fractional durability debt (a remainder &lt; 1.0 carried between blocks). The
      *  durability multiplier costs a fraction of a point per block (e.g. 0.40); accumulating that
      *  here and spending whole points as the debt crosses 1.0 keeps the percentage honest instead of
      *  rounding every block to 0 or a full point. */
     private static final Map<UUID, Double> DURABILITY_DEBT = new HashMap<>();
+
+    /** Gather every vein-mined drop into the block the player actually broke. Flip to false to
+     *  restore stock behaviour (drops left where each block was). Kept as a constant so this file
+     *  is self-contained and no other file needs editing. */
+    private static final boolean DROPS_AT_ORIGIN = true;
 
     /** Set while we break queued blocks so the loader's break hook ignores those breaks. */
     private static boolean breaking = false;
@@ -118,6 +129,7 @@ public final class VeinMiner {
 
         if (!queue.isEmpty()) {
             JOBS.put(player.getUUID(), queue);
+            ORIGINS.put(player.getUUID(), origin.immutable());
         }
     }
 
@@ -267,6 +279,7 @@ public final class VeinMiner {
             if (player == null) {                 // logged off mid-vein — drop the job
                 it.remove();
                 DURABILITY_DEBT.remove(entry.getKey());
+                ORIGINS.remove(entry.getKey());
                 continue;
             }
 
@@ -282,6 +295,7 @@ public final class VeinMiner {
                     if (target.leaf()) {
                         // Decay-equivalent drops (no tool, no fortune) and no durability cost.
                         level.destroyBlock(target.pos(), true);
+                        gatherDrops(level, entry.getKey(), target.pos());
                     } else if (VeinMinerConfig.voidBasicMaterials
                             && VeinMinerConfig.voidBlocks.contains(state.getBlock())) {
                         // Void: delete with no drops/XP, but still charge durability per the % setting.
@@ -299,6 +313,7 @@ public final class VeinMiner {
                         }
                         int damageBefore = tool.getDamageValue();
                         player.gameMode.destroyBlock(target.pos());
+                        gatherDrops(level, entry.getKey(), target.pos());
                         applyDurabilityMultiplier(player, damageBefore);
                     }
                 }
@@ -308,7 +323,26 @@ public final class VeinMiner {
 
             if (queue.isEmpty()) {
                 it.remove();
+                ORIGINS.remove(entry.getKey());
             }
+        }
+    }
+
+    /** Move every item the break at {@code from} just spawned into the job's origin block, so a
+     *  vein drops as one pile at the spot the player mined. No-op when the feature is off, when
+     *  the job has no recorded origin, or when the break was the origin itself. Only entities
+     *  inside the broken block's own cube are moved, which is where vanilla's {@code popResource}
+     *  puts fresh drops; an item already resting in that cube is moved too, which is harmless. */
+    private static void gatherDrops(ServerLevel level, UUID uuid, BlockPos from) {
+        if (!DROPS_AT_ORIGIN) return;
+        BlockPos origin = ORIGINS.get(uuid);
+        if (origin == null || origin.equals(from)) return;
+
+        Vec3 dest = Vec3.atCenterOf(origin);
+        for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class, new AABB(from))) {
+            item.setPos(dest.x, dest.y, dest.z);
+            item.setDeltaMovement(Vec3.ZERO);
+            item.setPickUpDelay(10);
         }
     }
 
